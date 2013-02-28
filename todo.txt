@@ -4,6 +4,9 @@
 
 28.02.2013
 
+Pivot type: A (normal), S (solid), D (locked).
+Toggle shape type with W.
+Find next closest point.
 *Add information about link limits.
 *Add command overview to manual.
 *Link to manual.
