@@ -1,2 +1,26 @@
 S-PIVOT V0.000
 
+OVERVIEW
+
+Left mouse button
+	Move pivot with skeleton simulation
+
+Left mouse button + Shift
+	Move pivot without skeleton simulation
+
+Q
+	Add line
+	Confirm with Enter
+	Cancel with Backspace
+
+E
+	Add circle
+	Confirm with Enter
+	Cancel with Backspace
+
+X
+	Delete pivot with connected shapes
+
+LINK LIMITS
+
+Most modern browsers support maximum 2000 characters in the link.

@@ -4,6 +4,8 @@
 
 28.02.2013
 
+*Add information about link limits.
+*Add command overview to manual.
 *Link to manual.
 *Manual.
 *Stick figure example.
