@@ -4,6 +4,20 @@
 
 28.02.2013
 
+*Link to manual.
+*Manual.
+*Stick figure example.
+*Cancel added shape with backspace.
+*Delete pivot with X.
+*Make simulation more strict.
+*Refresh graphics on keyup.
+*Draw closest point in green when adding.
+*Confirm with enter instead of mouse down.
+*Move point when adding shape.
+*Find closest point in reverse order.
+*Find closest point when adding shape.
+*Add line with Q.
+*Add circle with E.
 *Repository.
 *Read data from url.
 *Save data to url.

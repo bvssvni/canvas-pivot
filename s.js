@@ -3,13 +3,14 @@ var shape_type = {
 circle: 1, line: 2
 };
 var editor = {
-selected_frame: testFrame(),
+selected_frame: null,
 workarea_mousedown_pos: null,
 workarea_mousemove_pos: null,
 workarea_is_mousedown: false,
 workarea_mouseup_pos: null,
 closest_pivot_info: null,
-workarea_is_shiftdown: false
+workarea_is_shiftdown: false,
+workarea_key: null
 };
 var interface = {
 	workarea_id: "workarea"
@@ -18,7 +19,9 @@ var settings = {
 pivot_color: "#FF0000",
 pivot_radius: 7,
 closest_pivot_color: "#FFFF00",
-closest_pivot_radius: 5
+closest_pivot_color_added_shape: "#00FF00",
+closest_pivot_radius: 5,
+simulate_iterations: 10
 };
 
 // LZW-compress a string
@@ -167,6 +170,23 @@ function newFrame() {
 		}
 	}
 	
+	frame.deletePivot = function(p) {
+		for (var i = shapes.length - 1; i >= 0; i--) {
+			var shape = shapes[i];
+			if (shape.p1 == p || shape.p2 == p) {
+				shapes.splice(i, 1);
+			}
+		}
+		
+		pivots.splice(p, 1);
+		
+		for (var i = 0; i < shapes.length; i++) {
+			var shape = shapes[i];
+			if (shape.p1 > p) shape.p1--;
+			if (shape.p2 > p) shape.p2--;
+		}
+	}
+	
 	frame.draw = function(context) {
 		context.save();
 		for (var i = 0; i < shapes.length; i++) {
@@ -212,7 +232,7 @@ function newFrame() {
 		
 		var min_dist = -1;
 		var min_index = -1;
-		for (var i = 0; i < pivots.length; i++) {
+		for (var i = pivots.length - 1; i >= 0; i--) {
 			var p = pivots[i];
 			var dx = p[0] - x;
 			var dy = p[1] - y;
@@ -293,36 +313,60 @@ function testFrame() {
 	return frame;
 }
 
+function defaultFrame() {
+	var frame = newFrame();
+	var box = document.getElementById(interface.workarea_id);
+	frame.addPivot(0.5 * box.width, 0.5 * box.height);
+	return frame;
+}
+
 function isDragging(advisor) {
 	return advisor.move_pivot && editor.workarea_is_mousedown;
 }
 
 function shouldSimulate(advisor) {
 	if (editor.workarea_is_shiftdown) return false;
+	if (editor.added_shape) return false;
 	
 	return isDragging(advisor);
 }
 
 function shouldUpdateDistance(advisor) {
+	if (editor.added_shape) return true;
+	
 	return isDragging(advisor) && editor.workarea_is_shiftdown;
 }
 
+function shouldRefreshGraphics(advisor) {
+	return advisor.loading ||
+	advisor.move_pivot ||
+	shouldAddCircle(advisor) ||
+	shouldAddLine(advisor) ||
+	advisor.workarea_keyup;
+}
+
 function shouldRenderSelectedFrame(advisor) {
-	return advisor.loading || advisor.move_pivot;
+	return shouldRefreshGraphics(advisor);
 }
 
 function shouldRenderSelectedFramePivots(advisor) {
-	return advisor.loading || advisor.move_pivot;
+	return shouldRefreshGraphics(advisor);
 }
 
 function shouldRenderClosestPivot(advisor) {
 	if (editor.closest_pivot_info == null) return false;
 	
-	return advisor.loading || advisor.move_pivot;
+	return shouldRefreshGraphics(advisor) && !editor.added_shape;
+}
+
+function shouldRenderClosestPivotAddedShape(advisor) {
+	if (editor.closest_pivot_info == null) return false;
+	
+	return shouldRefreshGraphics(advisor) && editor.added_shape;
 }
 
 function shouldCreateContext(advisor) {
-	return advisor.loading || advisor.move_pivot;
+	return shouldRefreshGraphics(advisor);
 }
 
 function shouldFindClosestPivotMouseDown(advisor) {
@@ -331,12 +375,17 @@ function shouldFindClosestPivotMouseDown(advisor) {
 
 function shouldFindClosestPivotMouseMove(advisor) {
 	if (editor.workarea_is_mousedown) return false;
+	if (editor.added_shape) return false;
 	
 	return advisor.workarea_mousemove;
 }
 
+function shouldFindClosestPivotAddedShape(advisor) {
+	return shouldAddCircle(advisor) || shouldAddLine(advisor);
+}
+
 function shouldChangeWorkareaCursorToCrosshair(advisor) {
-	return isDragging(advisor);
+	return isDragging(advisor) || editor.added_shape;
 }
 
 function shouldChangeWorkareaCursorToDefault(advisor) {
@@ -345,9 +394,13 @@ function shouldChangeWorkareaCursorToDefault(advisor) {
 
 function shouldMoveClosestPivot(advisor) {
 	if (editor.closest_pivot_info === null) return false;
-	if (!editor.workarea_is_mousedown) return false;
 	
-	return advisor.move_pivot;
+	return editor.added_shape ||
+	advisor.move_pivot && editor.workarea_is_mousedown;
+}
+
+function shouldSetAddedShapeToFalse(advisor) {
+	return advisor.workarea_enter || advisor.workarea_backspace;
 }
 
 function shouldSetWorkAreaIsMouseDownToTrue(advisor) {
@@ -356,6 +409,30 @@ function shouldSetWorkAreaIsMouseDownToTrue(advisor) {
 
 function shouldSetWorkAreaIsMouseDownToFalse(advisor) {
 	return advisor.workarea_mouseup;
+}
+
+function shouldAddCircle(advisor) {
+	return advisor.workarea_keydown && editor.workarea_key == "E";
+}
+
+function shouldAddLine(advisor) {
+	return advisor.workarea_keydown && editor.workarea_key == "Q";
+}
+
+function shouldDeletePivot(advisor) {
+	if (editor.closest_pivot_info === null) return false;
+	
+	return advisor.workarea_keydown && editor.workarea_key == "X" ||
+	editor.added_shape && advisor.workarea_backspace;
+}
+
+function drawClosestPivot(context, color) {
+	var pivot_id = editor.closest_pivot_info.min_index;
+	var frame = editor.selected_frame;
+	var pos = frame.getPivotPosition(pivot_id);
+	context.fillStyle = color;
+	var rad = settings.closest_pivot_radius;
+	ellipse(context, "fill", pos[0] - rad, pos[1] - rad, 2 * rad, 2 * rad);
 }
 
 function doStuff(advisor) {
@@ -375,12 +452,37 @@ function doStuff(advisor) {
 		var box = document.getElementById(interface.workarea_id);
 		box.style.cursor = "default";
 	}
+	if (shouldAddCircle(advisor)) {
+		var pivot_id = editor.closest_pivot_info.min_index;
+		var mouse_pos = editor.workarea_mousemove_pos;
+		var frame = editor.selected_frame;
+		var p2 = frame.addPivot(mouse_pos[0], mouse_pos[1]);
+		frame.addCircle(pivot_id, p2, "#000000");
+		editor.move_pivot = true;
+		editor.added_shape = true;
+		editor.workarea_mousedown_pos = mouse_pos;
+	}
+	if (shouldAddLine(advisor)) {
+		var pivot_id = editor.closest_pivot_info.min_index;
+		var mouse_pos = editor.workarea_mousemove_pos;
+		var frame = editor.selected_frame;
+		var p2 = frame.addPivot(mouse_pos[0], mouse_pos[1]);
+		frame.addLine(pivot_id, p2, "#000000", 15);
+		editor.move_pivot = true;
+		editor.added_shape = true;
+		editor.workarea_mousedown_pos = mouse_pos;
+	}
 	if (shouldFindClosestPivotMouseDown(advisor)) {
 		var frame = editor.selected_frame;
 		var pos = editor.workarea_mousedown_pos;
 		editor.closest_pivot_info = frame.closestPivotInfo(pos[0], pos[1]);
 	}
 	if (shouldFindClosestPivotMouseMove(advisor)) {
+		var frame = editor.selected_frame;
+		var pos = editor.workarea_mousemove_pos;
+		editor.closest_pivot_info = frame.closestPivotInfo(pos[0], pos[1]);
+	}
+	if (shouldFindClosestPivotAddedShape(advisor)) {
 		var frame = editor.selected_frame;
 		var pos = editor.workarea_mousemove_pos;
 		editor.closest_pivot_info = frame.closestPivotInfo(pos[0], pos[1]);
@@ -397,6 +499,15 @@ function doStuff(advisor) {
 		var new_y = start_pos[1] + dy;
 		frame.setPivotPosition(pivot_id, new_x, new_y);
 	}
+	if (shouldDeletePivot(advisor)) {
+		var pivot_id = editor.closest_pivot_info.min_index;
+		var frame = editor.selected_frame;
+		frame.deletePivot(pivot_id);
+		editor.closest_pivot_info = null;
+	}
+	if (shouldSetAddedShapeToFalse(advisor)) {
+		editor.added_shape = false;
+	}
 	if (shouldUpdateDistance(advisor)) {
 		var pivot_id = editor.closest_pivot_info.min_index;
 		var frame = editor.selected_frame;
@@ -404,7 +515,9 @@ function doStuff(advisor) {
 	}
 	if (shouldSimulate(advisor)) {
 		var frame = editor.selected_frame;
-		frame.simulate();
+		for (var i = 0; i < settings.simulate_iterations; i++) {
+			frame.simulate();
+		}
 	}
 	if (shouldCreateContext(advisor)) {
 		var box = document.getElementById(interface.workarea_id);
@@ -418,12 +531,10 @@ function doStuff(advisor) {
 		editor.selected_frame.drawPivots(context);
 	}
 	if (shouldRenderClosestPivot(advisor)) {
-		var pivot_id = editor.closest_pivot_info.min_index;
-		var frame = editor.selected_frame;
-		var pos = frame.getPivotPosition(pivot_id);
-		context.fillStyle = settings.closest_pivot_color;
-		var rad = settings.closest_pivot_radius;
-		ellipse(context, "fill", pos[0] - rad, pos[1] - rad, 2 * rad, 2 * rad);
+		drawClosestPivot(context, settings.closest_pivot_color);
+	}
+	if (shouldRenderClosestPivotAddedShape(advisor)) {
+		drawClosestPivot(context, settings.closest_pivot_color_added_shape);
 	}
 }
 
@@ -435,7 +546,9 @@ function newAdvisor() {
 	workarea_mousemove: false,
 	workarea_mouseup: false,
 	workarea_keydown: false,
-	workarea_keyup: true
+	workarea_keyup: true,
+	workarea_enter: false,
+	workarea_backspace: false
 	};
 }
 
@@ -473,11 +586,21 @@ function makeWorkareaMovePivot() {
 	}
 	var keydown = function(event) {
 		event = event || window.event;
+		event.preventDefault();
 		
 		var key = event.keyCode;
-		editor.workarea_is_shiftdown = key == 16;
+		var is_shift = key == 16;
+		editor.workarea_is_shiftdown = is_shift;
+		if (key >= 41 && key <= 90) {
+			editor.workarea_key = String.fromCharCode(key);
+		} else if (!is_shift) {
+			editor.workarea_key = null;
+		}
+		
 		var advisor = newAdvisor();
 		advisor.workarea_keydown = true;
+		advisor.workarea_enter = key == 13;
+		advisor.workarea_backspace = key == 8;
 		doStuff(advisor);
 		
 		return false;
@@ -487,6 +610,9 @@ function makeWorkareaMovePivot() {
 		
 		var key = event.keyCode;
 		if (key == 16) editor.workarea_is_shiftdown = false;
+		if (key >= 41 && key <= 90) {
+			editor.workarea_key = null;
+		}
 		
 		var advisor = newAdvisor();
 		advisor.workarea_keyup = true;
@@ -502,6 +628,8 @@ function makeWorkareaMovePivot() {
 }
 
 function onLoad() {
+	editor.selected_frame = defaultFrame();
+	
 	readUrl(window.location.href);
 	
 	makeWorkareaMovePivot();
