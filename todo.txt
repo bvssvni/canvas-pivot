@@ -1,0 +1,35 @@
+* Completed on same day.
++ Completed on later day.
+- Decided against on later day.
+
+28.02.2013
+
+*Repository.
+*Read data from url.
+*Save data to url.
+*List of frames.
+*When holding shift, update skeleton distance.
+*Function for updating distance.
+*When holding shift, turn off simulation.
+*Skeleton simulation.
+
+27.02.2013
+
+*Bone mode: Less, equal, more, none.
+*Prevent text cursor to appear on workarea.
+*Draw closest pivot.
+*Move pivot.
+*Function for setting pivot position.
+*Function for finding closest pivot.
+*Mouse down event.
+*Draw pivots.
+*Drawing line.
+*Function for drawing shapes.
+*Test frame.
+*Function for adding line.
+*Function for adding circle.
+*Function for adding pivot.
+*List of shapes.
+*List of pivots.
+*Function for new document.
+*Design interface.

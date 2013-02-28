@@ -1,0 +1,30 @@
+<html>
+<head>
+<script src="s.js">
+</script>
+<style>
+	body {
+		/* Make the content on this page not selectable. */
+		-webkit-user-select: none;
+	}
+	
+	#workarea {
+		outline: none;
+		border: 1px solid;
+	}
+	
+	#timeline {
+		outline: none;
+		border: 1px solid;
+	}
+</style>
+</head>
+<body>
+<canvas tabindex="0" id="workarea" width="600" height="400">
+</canvas>
+<p>
+<input onclick="clearUrl();" type="button" value="Clear" />
+<input onclick="updateUrl();" type="button" value="Update Url" />
+</p>
+</body>
+</html>
