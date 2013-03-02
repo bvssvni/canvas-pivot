@@ -17,6 +17,8 @@ var interface = {
 };
 var settings = {
 pivot_color: "#FF0000",
+pivot_rigid_color: "#8888FF",
+pivot_locked_color: "#888888",
 pivot_radius: 7,
 closest_pivot_color: "#FFFF00",
 closest_pivot_color_added_shape: "#00FF00",
@@ -122,11 +124,102 @@ function mousePos(canvas, event) {
 
 function newFrame() {
 	var pivots = [];
+	var locks = [];
+	var rigids = [];
 	var shapes = [];
+	// Contains the information for rigid body simulation.
+	var rigid_lists = [];
+	var rigid_positions = [];
 	var frame = {};
+	
+	var updateRigids = function() {
+		var lists = [];
+		// Create empty lists.
+		for (var i = 0; i < pivots.length; i++) {
+			lists.push([]);
+		}
+		// Create a list of all rigid pivots and their connected pivots.
+		for (var i = 0; i < shapes.length; i++) {
+			var shape = shapes[i];
+			var p1 = shape.p1;
+			var p2 = shape.p2;
+			var p1rigid = rigids[p1];
+			var p2rigid = rigids[p2];
+			if (p1rigid) {
+				var list = lists[p1];
+				if (list.length == 0) {
+					list.push(p1);
+				}
+				
+				list.insertSorted(p2);
+			}
+			if (p2rigid) {
+				var list = lists[p2];
+				if (list.length == 0) {
+					list.push(p2);
+				}
+				
+				list.insertSorted(p1);
+			}
+		}
+		
+		// Remove empty lists.
+		for (var i = lists.length - 1; i >= 0; i--) {
+			if (lists[i].length == 0) {
+				lists.splice(i, 1);
+			}
+		}
+		
+		// Connect lists that are joined by rigid pivot.
+		var restart = false;
+		do {
+			restart = false;
+			for (var i = 0; i < lists.length; i++) {
+				var a = lists[i];
+				for (var j = i+1; j < lists.length; j++) {
+					var b = lists[j];
+					var c = a.and(b);
+					if (c.length == 0) continue;
+					
+					var foundRigid = false;
+					for (var k = 0; k < c.length; k++) {
+						if (rigids[c[k]]) {
+							foundRigid = true;
+							break;
+						}
+					}
+					
+					if (!foundRigid) continue;
+					
+					restart = true;
+					lists[i] = a.or(b);
+					lists.splice(j, 1);
+					break;
+				}
+				
+				if (restart) break;
+			}
+		} while (restart);
+		
+		// Push the start positions to update the rigids.
+		rigid_lists = lists;
+		rigid_positions = [];
+		for (var i = 0; i < rigid_lists.length; i++) {
+			var list = rigid_lists[i];
+			var poslist = [];
+			for (var j = 0; j < list.length; j++) {
+				var p = pivots[list[j]];
+				poslist.push([p[0], p[1]]);
+			}
+			
+			rigid_positions.push(poslist);
+		}
+	}
 	
 	frame.addPivot = function(x, y) {
 		pivots.push([x, y]);
+		locks.push(false);
+		rigids.push(false);
 		return pivots.length - 1;
 	}
 	frame.getPivotPosition = function(id) {
@@ -134,6 +227,19 @@ function newFrame() {
 	}
 	frame.setPivotPosition = function(id, x, y) {
 		pivots[id] = [x, y];
+	}
+	frame.getPivotRigid = function(p) {
+		return rigids[p];
+	}
+	frame.setPivotRigid = function(p, val) {
+		rigids[p] = val;
+		updateRigids();
+	}
+	frame.getPivotLocked = function(p) {
+		return locks[p];
+	}
+	frame.setPivotLocked = function(p, val) {
+		locks[p] = val;
 	}
 	
 	var distanceBetweenPoints = function(p1, p2) {
@@ -168,6 +274,8 @@ function newFrame() {
 				shape.distance = dist;
 			}
 		}
+		
+		updateRigids();
 	}
 	
 	frame.deletePivot = function(p) {
@@ -179,6 +287,8 @@ function newFrame() {
 		}
 		
 		pivots.splice(p, 1);
+		locks.splice(p, 1);
+		rigids.splice(p, 1);
 		
 		for (var i = 0; i < shapes.length; i++) {
 			var shape = shapes[i];
@@ -220,7 +330,13 @@ function newFrame() {
 		for (var i = 0; i < pivots.length; i++) {
 			var p = pivots[i];
 			var r = settings.pivot_radius;
-			context.fillStyle = settings.pivot_color;
+			if (locks[i]) {
+				context.fillStyle = settings.pivot_locked_color;
+			} else if (rigids[i]) {
+				context.fillStyle = settings.pivot_rigid_color;
+			} else {
+				context.fillStyle = settings.pivot_color;
+			}
 			ellipse(context, "fill", p[0] - r, p[1] - r, 2*r, 2*r);
 		}
 		context.restore();
@@ -247,9 +363,64 @@ function newFrame() {
 			pos: min_index == -1 ? null : pivots[min_index]};
 	}
 	
+	var simulateRigids = function() {
+		for (var i = 0; i < rigid_lists.length; i++) {
+			var oldx = 0, oldy = 0, newx = 0, newy = 0;
+			var list = rigid_lists[i];
+			
+			var n = list.length;
+			for (var j = 0; j < n; j++) {
+				var p = pivots[list[j]];
+				var q = rigid_positions[i][j];
+				
+				oldx += q[0];
+				oldy += q[1];
+				newx += p[0];
+				newy += p[1];
+			}
+			
+			oldx /= n;
+			oldy /= n;
+			newx /= n;
+			newy /= n;
+			var cross = 0;
+			var dot = 0;
+			for (var j = 0; j < n; j++) {
+				var p = pivots[list[j]];
+				var q = rigid_positions[i][j];
+				var old_dx = q[0] - oldx;
+				var old_dy = q[1] - oldy;
+				var new_dx = p[0] - newx;
+				var new_dy = p[1] - newy;
+				dot += old_dx * new_dx + old_dy * new_dy;
+				cross += old_dx * new_dy - old_dy * new_dx;
+			}
+			
+			var d = Math.sqrt(dot * dot + cross * cross);
+			dot /= d;
+			cross /= d;
+			
+			for (var j = 0; j < n; j++) {
+				var q = rigid_positions[i][j];
+				var dx = q[0] - oldx;
+				var dy = q[1] - oldy;
+				var px = dot * dx - cross * dy + newx;
+				var py = cross * dx + dot * dy + newy;
+				var ind = list[j];
+				var locked = locks[ind];
+				if (!locked) pivots[ind] = [px, py];
+			}
+		}
+	}
+	
 	frame.simulate = function() {
+		simulateRigids();
+		
 		for (var i = 0; i < shapes.length; i++) {
 			var shape = shapes[i];
+			if (rigids[shape.p1] || rigids[shape.p2]) continue;
+			if (locks[shape.p1] && locks[shape.p2]) continue;
+			
 			var distance = shape.distance;
 			var p1 = pivots[shape.p1];
 			var p2 = pivots[shape.p2];
@@ -261,8 +432,14 @@ function newFrame() {
 			var diff = distance - d;
 			dx *= 0.5 * diff / d;
 			dy *= 0.5 * diff / d;
-			pivots[shape.p1] = [p1[0] - dx, p1[1] - dy];
-			pivots[shape.p2] = [p2[0] + dx, p2[1] + dy];
+			if (locks[shape.p1]) {
+				pivots[shape.p2] = [p2[0] + 2*dx, p2[1] + 2*dy];
+			} else if (locks[shape.p2]) {
+				pivots[shape.p1] = [p1[0] - 2*dx, p1[1] - 2*dy];
+			} else {
+				pivots[shape.p1] = [p1[0] - dx, p1[1] - dy];
+				pivots[shape.p2] = [p2[0] + dx, p2[1] + dy];
+			}
 		}
 	}
 	
@@ -273,19 +450,48 @@ function newFrame() {
 			var p = pivots[i];
 			var x = Math.round(p[0]*10);
 			var y = Math.round(p[1]*10);
-			str += x + "," + y + ",";
+			str += x + "," + y + "," + (rigids[i]?1:0) + "," + (locks[i]?1:0) + ",";
 		}
 		
 		str += shapes.length + ",";
 		for (var i = 0; i < shapes.length; i++) {
 			var shape = shapes[i];
-			str += shape.type + "," + shape.p1 + "," + shape.p2 + "," +
-			shape.color + ",";
+			str += shape.type + "," + shape.p1 + "," + shape.p2 + ",";
 			if (shape.type == shape_type.line) {
 				str += Math.round(shape.thickness * 10) + ",";
 			}
 		}
 		return str;
+	}
+	frame.setData = function(valStr) {
+		var vals = valStr.split(",");
+		var cur = 0;
+		var pivot_length = parseInt(vals[cur++]);
+		for (var i = 0; i < pivot_length; i++) {
+			var x = parseInt(vals[cur++])/10;
+			var y = parseInt(vals[cur++])/10;
+			var rigid = parseInt(vals[cur++]);
+			var locked = parseInt(vals[cur++]);
+			pivots.push([x, y]);
+			rigids.push(rigid == 0 ? false : true);
+			locks.push(locked == 0 ? false : true);
+		}
+		
+		var shape_length = parseInt(cur++);
+		for (var i = 0; i < shape_length; i++) {
+			var type = parseInt(vals[cur++]);
+			var p1 = parseInt(vals[cur++]);
+			var p2 = parseInt(vals[cur++]);
+			var color = "#000000";
+			if (type == shape_type.circle) {
+				frame.addCircle(p1, p2, color);
+			} else if (type == shape_type.line) {
+				var thickness = parseInt(vals[cur++]);
+				frame.addLine(p1, p2, color, thickness/10);
+			}
+		}
+		
+		frame.updateDistance();
 	}
 	
 	return frame;
@@ -350,10 +556,17 @@ function shouldRenderSelectedFrame(advisor) {
 }
 
 function shouldRenderSelectedFramePivots(advisor) {
+	if (editor.workarea_is_mousedown && !editor.workarea_is_shiftdown) {
+		return false;
+	}
+	
 	return shouldRefreshGraphics(advisor);
 }
 
 function shouldRenderClosestPivot(advisor) {
+	if (editor.workarea_is_mousedown && !editor.workarea_is_shiftdown) {
+		return false;
+	}
 	if (editor.closest_pivot_info == null) return false;
 	
 	return shouldRefreshGraphics(advisor) && !editor.added_shape;
@@ -385,7 +598,17 @@ function shouldFindClosestPivotAddedShape(advisor) {
 }
 
 function shouldChangeWorkareaCursorToCrosshair(advisor) {
+	if (editor.workarea_is_mousedown && !editor.workarea_is_shiftdown) {
+		return false;
+	}
+	
 	return isDragging(advisor) || editor.added_shape;
+}
+
+function shouldChangeWorkareaCursorToNone(advisor) {
+	if (editor.workarea_is_shiftdown) return false;
+	
+	return editor.workarea_is_mousedown;
 }
 
 function shouldChangeWorkareaCursorToDefault(advisor) {
@@ -417,6 +640,18 @@ function shouldAddCircle(advisor) {
 
 function shouldAddLine(advisor) {
 	return advisor.workarea_keydown && editor.workarea_key == "Q";
+}
+
+function shouldTogglePivotRigid(advisor) {
+	if (editor.closest_pivot_info === null) return false;
+	
+	return advisor.workarea_keydown && editor.workarea_key == "S";
+}
+								
+function shouldTogglePivotLocked(advisor) {
+	if (editor.closest_pivot_info == null) return false;
+	
+	return advisor.workarea_keydown && editor.workarea_key == "D";
 }
 
 function shouldDeletePivot(advisor) {
@@ -452,6 +687,10 @@ function doStuff(advisor) {
 		var box = document.getElementById(interface.workarea_id);
 		box.style.cursor = "default";
 	}
+	if (shouldChangeWorkareaCursorToNone(advisor)) {
+		var box = document.getElementById(interface.workarea_id);
+		box.style.cursor = "none";
+	}
 	if (shouldAddCircle(advisor)) {
 		var pivot_id = editor.closest_pivot_info.min_index;
 		var mouse_pos = editor.workarea_mousemove_pos;
@@ -471,6 +710,18 @@ function doStuff(advisor) {
 		editor.move_pivot = true;
 		editor.added_shape = true;
 		editor.workarea_mousedown_pos = mouse_pos;
+	}
+	if (shouldTogglePivotRigid(advisor)) {
+		var pivot_id = editor.closest_pivot_info.min_index;
+		var frame = editor.selected_frame;
+		var val = !frame.getPivotRigid(pivot_id);
+		frame.setPivotRigid(pivot_id, val);
+	}
+	if (shouldTogglePivotLocked(advisor)) {
+		var pivot_id = editor.closest_pivot_info.min_index;
+		var frame = editor.selected_frame;
+		var val = !frame.getPivotLocked(pivot_id);
+		frame.setPivotLocked(pivot_id, val);
 	}
 	if (shouldFindClosestPivotMouseDown(advisor)) {
 		var frame = editor.selected_frame;
@@ -653,30 +904,7 @@ function readUrl(str) {
 	
 	var valStr = decodeURIComponent(str.substring(index_start+1));
 	valStr = lzw_decode(valStr);
-	var vals = valStr.split(",");
-	
-	var frame = editor.selected_frame;
-	var cur = 0;
-	var pivot_length = parseInt(vals[cur++]);
-	for (var i = 0; i < pivot_length; i++) {
-		var x = parseInt(vals[cur++])/10;
-		var y = parseInt(vals[cur++])/10;
-		frame.addPivot(x, y);
-	}
-	
-	var shape_length = parseInt(cur++);
-	for (var i = 0; i < shape_length; i++) {
-		var type = parseInt(vals[cur++]);
-		var p1 = parseInt(vals[cur++]);
-		var p2 = parseInt(vals[cur++]);
-		var color = vals[cur++];
-		if (type == shape_type.circle) {
-			frame.addCircle(p1, p2, color);
-		} else if (type == shape_type.line) {
-			var thickness = parseInt(vals[cur++]);
-			frame.addLine(p1, p2, color, thickness/10);
-		}
-	}
+	editor.selected_frame.setData(valStr);
 }
 
 function clearUrl() {

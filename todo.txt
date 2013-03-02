@@ -2,6 +2,29 @@
 + Completed on later day.
 - Decided against on later day.
 
+01.03.2013
+
+*Update example.
+*Set data in frame function.
+*Store rigid and locks in data.
+*Hide cursor when mouse is down.
+*Hide closest point when mouse is down.
+*Hide pivots when mouse is down.
+*Make rigid color brighter.
+*Draw locked as gray.
+*Lock pivot with D.
+*Bug rigid does not rotate properly.
+*Toggle rigid with S.
+*Bug rigid is too snappy.
+*Simulate rigids.
+*Draw rigid pivot with blue color.
+*Rigid pivot with S.
+*Function that extract the rigid body information based on pivot state.
+*Binary search function that returns negative index if not found.
+*Function that 'exclude' index lists.
+*Function that 'and' index lists.
+*Function that 'or' index lists.
+
 28.02.2013
 
 Pivot type: A (normal), S (solid), D (locked).

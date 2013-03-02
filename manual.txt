@@ -18,6 +18,14 @@ E
 	Confirm with Enter
 	Cancel with Backspace
 
+S
+	Toggle rigid pivot
+	Prevents connected pivots from rotating freely
+
+D
+	Toggle lock pivot
+	Locks the pivot to current coordinate
+
 X
 	Delete pivot with connected shapes
 
