@@ -10,10 +10,12 @@ workarea_is_mousedown: false,
 workarea_mouseup_pos: null,
 closest_pivot_info: null,
 workarea_is_shiftdown: false,
-workarea_key: null
+workarea_key: null,
+thickness: 15
 };
 var interface = {
-	workarea_id: "workarea"
+workarea_id: "workarea",
+thickness_id: "thickness"
 };
 var settings = {
 pivot_color: "#FF0000",
@@ -706,7 +708,7 @@ function doStuff(advisor) {
 		var mouse_pos = editor.workarea_mousemove_pos;
 		var frame = editor.selected_frame;
 		var p2 = frame.addPivot(mouse_pos[0], mouse_pos[1]);
-		frame.addLine(pivot_id, p2, "#000000", 15);
+		frame.addLine(pivot_id, p2, "#000000", editor.thickness);
 		editor.move_pivot = true;
 		editor.added_shape = true;
 		editor.workarea_mousedown_pos = mouse_pos;
@@ -888,6 +890,14 @@ function onLoad() {
 	var advisor = newAdvisor();
 	advisor.loading = true;
 	doStuff(advisor);
+}
+
+function updateThickness() {
+	var thickness = document.getElementById(interface.thickness_id);
+	var val = parseFloat(thickness.value);
+	if (val > 0) {
+		editor.thickness = val;
+	}
 }
 
 function updateUrl() {
