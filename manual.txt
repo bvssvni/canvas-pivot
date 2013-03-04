@@ -1,5 +1,12 @@
 S-PIVOT V0.000
 
+BUG IN FIREFOX
+
+If the skeleton simulation starts behaving strangely, it is likely
+due to a bug in Firefox 19.
+
+Solution: Use Chrome.
+
 OVERVIEW
 
 Left mouse button

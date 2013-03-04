@@ -2,8 +2,16 @@
 + Completed on later day.
 - Decided against on later day.
 
+04.03.2013
+
+*Add information about Firefox bug to manual.
+
 03.03.2013
 
+Upload site.
+Bug when moving in Firefox.
+*Bug in Firefox when viewing example.
+*Add utf-8 encoding.
 *Adjust line thickness.
 
 01.03.2013

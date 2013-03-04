@@ -1,35 +1,11 @@
-
-var shape_type = {
-circle: 1, line: 2
-};
-var editor = {
-selected_frame: null,
-workarea_mousedown_pos: null,
-workarea_mousemove_pos: null,
-workarea_is_mousedown: false,
-workarea_mouseup_pos: null,
-closest_pivot_info: null,
-workarea_is_shiftdown: false,
-workarea_key: null,
-thickness: 15
-};
-var interface = {
-workarea_id: "workarea",
-thickness_id: "thickness"
-};
-var settings = {
-pivot_color: "#FF0000",
-pivot_rigid_color: "#8888FF",
-pivot_locked_color: "#888888",
-pivot_radius: 7,
-closest_pivot_color: "#FFFF00",
-closest_pivot_color_added_shape: "#00FF00",
-closest_pivot_radius: 5,
-simulate_iterations: 10
-};
+var shape_type = {circle: 1, line: 2};
+var editor = {selected_frame: null, workarea_mousedown_pos: null, workarea_mousemove_pos: null, workarea_is_mousedown: false, workarea_mouseup_pos: null, closest_pivot_info: null, workarea_is_shiftdown: false, workarea_key: null, thickness: 15};
+var gui = {workarea_id: "workarea", thickness_id: "thickness"};
+var settings = {pivot_color: "#FF0000", pivot_rigid_color: "#8888FF", pivot_locked_color: "#888888", pivot_radius: 7, closest_pivot_color: "#FFFF00", closest_pivot_color_added_shape: "#00FF00", closest_pivot_radius: 5, simulate_iterations: 10};
 
 // LZW-compress a string
 function lzw_encode(s) {
+    "use strict";
     var dict = {};
     var data = (s + "").split("");
     var out = [];
@@ -367,7 +343,10 @@ function newFrame() {
 	
 	var simulateRigids = function() {
 		for (var i = 0; i < rigid_lists.length; i++) {
-			var oldx = 0, oldy = 0, newx = 0, newy = 0;
+			var oldx = 0.0;
+			var oldy = 0.0;
+			var newx = 0.0;
+			var newy = 0.0;
 			var list = rigid_lists[i];
 			
 			var n = list.length;
@@ -385,8 +364,8 @@ function newFrame() {
 			oldy /= n;
 			newx /= n;
 			newy /= n;
-			var cross = 0;
-			var dot = 0;
+			var cross = 0.0;
+			var dot = 0.0;
 			for (var j = 0; j < n; j++) {
 				var p = pivots[list[j]];
 				var q = rigid_positions[i][j];
@@ -398,9 +377,11 @@ function newFrame() {
 				cross += old_dx * new_dy - old_dy * new_dx;
 			}
 			
-			var d = Math.sqrt(dot * dot + cross * cross);
-			dot /= d;
-			cross /= d;
+			var distance = Math.sqrt(dot * dot + cross * cross);
+			if (Math.abs(distance) < 0.00000001) return;
+			
+			dot /= distance;
+			cross /= distance;
 			
 			for (var j = 0; j < n; j++) {
 				var q = rigid_positions[i][j];
@@ -410,7 +391,7 @@ function newFrame() {
 				var py = cross * dx + dot * dy + newy;
 				var ind = list[j];
 				var locked = locks[ind];
-				if (!locked) pivots[ind] = [px, py];
+				if (!locked) {pivots[ind] = [px, py];}
 			}
 		}
 	}
@@ -523,7 +504,7 @@ function testFrame() {
 
 function defaultFrame() {
 	var frame = newFrame();
-	var box = document.getElementById(interface.workarea_id);
+	var box = document.getElementById(gui.workarea_id);
 	frame.addPivot(0.5 * box.width, 0.5 * box.height);
 	return frame;
 }
@@ -682,15 +663,15 @@ function doStuff(advisor) {
 		editor.workarea_is_mousedown = false;
 	}
 	if (shouldChangeWorkareaCursorToCrosshair(advisor)) {
-		var box = document.getElementById(interface.workarea_id);
+		var box = document.getElementById(gui.workarea_id);
 		box.style.cursor = "crosshair";
 	}
 	if (shouldChangeWorkareaCursorToDefault(advisor)) {
-		var box = document.getElementById(interface.workarea_id);
+		var box = document.getElementById(gui.workarea_id);
 		box.style.cursor = "default";
 	}
 	if (shouldChangeWorkareaCursorToNone(advisor)) {
-		var box = document.getElementById(interface.workarea_id);
+		var box = document.getElementById(gui.workarea_id);
 		box.style.cursor = "none";
 	}
 	if (shouldAddCircle(advisor)) {
@@ -773,7 +754,7 @@ function doStuff(advisor) {
 		}
 	}
 	if (shouldCreateContext(advisor)) {
-		var box = document.getElementById(interface.workarea_id);
+		var box = document.getElementById(gui.workarea_id);
 		context = box.getContext("2d");
 		context.clearRect(0, 0, box.width, box.height);
 	}
@@ -806,7 +787,7 @@ function newAdvisor() {
 }
 
 function makeWorkareaMovePivot() {
-	var box = document.getElementById(interface.workarea_id);
+	var box = document.getElementById(gui.workarea_id);
 	var mousedown = function(event) {
 		event = event || window.event;
 		
@@ -893,7 +874,7 @@ function onLoad() {
 }
 
 function updateThickness() {
-	var thickness = document.getElementById(interface.thickness_id);
+	var thickness = document.getElementById(gui.thickness_id);
 	var val = parseFloat(thickness.value);
 	if (val > 0) {
 		editor.thickness = val;
