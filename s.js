@@ -100,6 +100,70 @@ function mousePos(canvas, event) {
 	return [event.clientX - rect.left, event.clientY - rect.top];
 }
 
+// rigid_lists - A list of lists with indices of pivots.
+// rigid_positions - A list of lists with start positions of pivots.
+// pivots - A list of pivot positions.
+// locks - A list of boolean values telling which pivots are locked.
+var simulateRigids = function(rigid_lists, rigid_positions, pivots, locks) {
+	if (rigid_lists == null) throw "Missing 'rigid_lists'";
+	if (rigid_positions == null) throw "Missing 'rigid_positions'";
+	if (pivots == null) throw "Missing 'pivots'";
+	if (locks == null) throw "Missing 'locks'";
+	
+	for (var i = 0; i < rigid_lists.length; i++) {
+		var oldx = 0.0;
+		var oldy = 0.0;
+		var newx = 0.0;
+		var newy = 0.0;
+		var list = rigid_lists[i];
+		
+		var n = list.length;
+		for (var j = 0; j < n; j++) {
+			var p = pivots[list[j]];
+			var q = rigid_positions[i][j];
+			
+			oldx += q[0];
+			oldy += q[1];
+			newx += p[0];
+			newy += p[1];
+		}
+		
+		oldx /= n;
+		oldy /= n;
+		newx /= n;
+		newy /= n;
+		var cross = 0.0;
+		var dot = 0.0;
+		for (var j = 0; j < n; j++) {
+			var p = pivots[list[j]];
+			var q = rigid_positions[i][j];
+			var old_dx = q[0] - oldx;
+			var old_dy = q[1] - oldy;
+			var new_dx = p[0] - newx;
+			var new_dy = p[1] - newy;
+			dot += old_dx * new_dx + old_dy * new_dy;
+			cross += old_dx * new_dy - old_dy * new_dx;
+		}
+		
+		var distance = Math.sqrt(dot * dot + cross * cross);
+		if (Math.abs(distance) < 0.00000001) return;
+		
+		dot /= distance;
+		cross /= distance;
+		
+		for (var j = 0; j < n; j++) {
+			var q = rigid_positions[i][j];
+			var dx = q[0] - oldx;
+			var dy = q[1] - oldy;
+			var px = dot * dx - cross * dy + newx;
+			var py = cross * dx + dot * dy + newy;
+			var ind = list[j];
+			var locked = locks[ind];
+			if (!locked) {pivots[ind] = [px, py];}
+		}
+	}
+}
+
 function newFrame() {
 	var pivots = [];
 	var locks = [];
@@ -341,63 +405,8 @@ function newFrame() {
 			pos: min_index == -1 ? null : pivots[min_index]};
 	}
 	
-	var simulateRigids = function() {
-		for (var i = 0; i < rigid_lists.length; i++) {
-			var oldx = 0.0;
-			var oldy = 0.0;
-			var newx = 0.0;
-			var newy = 0.0;
-			var list = rigid_lists[i];
-			
-			var n = list.length;
-			for (var j = 0; j < n; j++) {
-				var p = pivots[list[j]];
-				var q = rigid_positions[i][j];
-				
-				oldx += q[0];
-				oldy += q[1];
-				newx += p[0];
-				newy += p[1];
-			}
-			
-			oldx /= n;
-			oldy /= n;
-			newx /= n;
-			newy /= n;
-			var cross = 0.0;
-			var dot = 0.0;
-			for (var j = 0; j < n; j++) {
-				var p = pivots[list[j]];
-				var q = rigid_positions[i][j];
-				var old_dx = q[0] - oldx;
-				var old_dy = q[1] - oldy;
-				var new_dx = p[0] - newx;
-				var new_dy = p[1] - newy;
-				dot += old_dx * new_dx + old_dy * new_dy;
-				cross += old_dx * new_dy - old_dy * new_dx;
-			}
-			
-			var distance = Math.sqrt(dot * dot + cross * cross);
-			if (Math.abs(distance) < 0.00000001) return;
-			
-			dot /= distance;
-			cross /= distance;
-			
-			for (var j = 0; j < n; j++) {
-				var q = rigid_positions[i][j];
-				var dx = q[0] - oldx;
-				var dy = q[1] - oldy;
-				var px = dot * dx - cross * dy + newx;
-				var py = cross * dx + dot * dy + newy;
-				var ind = list[j];
-				var locked = locks[ind];
-				if (!locked) {pivots[ind] = [px, py];}
-			}
-		}
-	}
-	
 	frame.simulate = function() {
-		simulateRigids();
+		simulateRigids(rigid_lists, rigid_positions, pivots, locks);
 		
 		for (var i = 0; i < shapes.length; i++) {
 			var shape = shapes[i];
