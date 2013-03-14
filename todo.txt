@@ -2,6 +2,10 @@
 + Completed on later day.
 - Decided against on later day.
 
+14.03.2013
+
+*Change prototype function for indexing to static functions.
+
 04.03.2013
 
 *Add information about Firefox bug to manual.

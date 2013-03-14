@@ -146,6 +146,7 @@ var simulateRigids = function(rigid_lists, rigid_positions, pivots, locks) {
 		}
 		
 		var distance = Math.sqrt(dot * dot + cross * cross);
+		
 		if (Math.abs(distance) < 0.00000001) return;
 		
 		dot /= distance;
@@ -193,7 +194,7 @@ function newFrame() {
 					list.push(p1);
 				}
 				
-				list.insertSorted(p2);
+				indexingInsertSorted(list, p2);
 			}
 			if (p2rigid) {
 				var list = lists[p2];
@@ -201,7 +202,7 @@ function newFrame() {
 					list.push(p2);
 				}
 				
-				list.insertSorted(p1);
+				indexingInsertSorted(list, p1);
 			}
 		}
 		
@@ -220,7 +221,7 @@ function newFrame() {
 				var a = lists[i];
 				for (var j = i+1; j < lists.length; j++) {
 					var b = lists[j];
-					var c = a.and(b);
+					var c = indexingAnd(a, b);
 					if (c.length == 0) continue;
 					
 					var foundRigid = false;
@@ -234,7 +235,7 @@ function newFrame() {
 					if (!foundRigid) continue;
 					
 					restart = true;
-					lists[i] = a.or(b);
+					lists[i] = indexingOr(a, b);
 					lists.splice(j, 1);
 					break;
 				}
@@ -815,6 +816,7 @@ function makeWorkareaMovePivot() {
 		advisor.move_pivot = true;
 		advisor.workarea_mousemove = true;
 		doStuff(advisor);
+		
 		return false;
 	}
 	var mouseup = function(event) {
