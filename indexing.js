@@ -65,7 +65,7 @@ function indexingExcept(a, b) {
 // if the item is not found.
 // For example, if 0 is higher, it returns -1.
 function indexingBinarySearch(obj, find) {
-	var low = 0, high = obj.length, i, comparison;
+	var low = 0, high = obj.length, i;
 	while (low < high) {
 		i = Math.floor((low + high - 1) / 2);
 		if (obj[i] < find) { low = i + 1; continue; };

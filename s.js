@@ -65,12 +65,12 @@ function ellipse(context, style, x, y, w, h) {
 	if (h == null) throw "Missing argument \"h\"";
 	
 	var kappa = .5522848;
-	var ox = (w / 2) * kappa, // control point offset horizontal
-	oy = (h / 2) * kappa, // control point offset vertical
-	xe = x + w, // x-end
-	ye = y + h, // y-end
-	xm = x + w / 2, // x-middle
-	ym = y + h / 2; // y-middle
+	var ox = (w / 2) * kappa; // control point offset horizontal
+	var oy = (h / 2) * kappa; // control point offset vertical
+	var xe = x + w; // x-end
+	var ye = y + h; // y-end
+	var xm = x + w / 2; // x-middle
+	var ym = y + h / 2; // y-middle
 	
 	context.beginPath();
 	context.moveTo(x, ym);
