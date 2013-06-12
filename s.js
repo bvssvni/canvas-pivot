@@ -104,7 +104,7 @@ function mousePos(canvas, event) {
 // rigid_positions - A list of lists with start positions of pivots.
 // pivots - A list of pivot positions.
 // locks - A list of boolean values telling which pivots are locked.
-var simulateRigids = function(rigid_lists, rigid_positions, pivots, locks) {
+function simulateRigids(rigid_lists, rigid_positions, pivots, locks) {
 	if (rigid_lists == null) throw "Missing 'rigid_lists'";
 	if (rigid_positions == null) throw "Missing 'rigid_positions'";
 	if (pivots == null) throw "Missing 'pivots'";
@@ -165,6 +165,92 @@ var simulateRigids = function(rigid_lists, rigid_positions, pivots, locks) {
 	}
 }
 
+function updateRigids(pivots, shapes, rigids) {
+    var lists = [];
+    // Create empty lists.
+    for (var i = 0; i < pivots.length; i++) {
+            lists.push([]);
+    }
+    // Create a list of all rigid pivots and their connected pivots.
+    for (var i = 0; i < shapes.length; i++) {
+            var shape = shapes[i];
+            var p1 = shape.p1;
+            var p2 = shape.p2;
+            var p1rigid = rigids[p1];
+            var p2rigid = rigids[p2];
+            if (p1rigid) {
+                    var list = lists[p1];
+                    if (list.length == 0) {
+                            list.push(p1);
+                    }
+
+                    indexingInsertSorted(list, p2);
+            }
+            if (p2rigid) {
+                    var list = lists[p2];
+                    if (list.length == 0) {
+                            list.push(p2);
+                    }
+
+                    indexingInsertSorted(list, p1);
+            }
+    }
+
+    // Remove empty lists.
+    for (var i = lists.length - 1; i >= 0; i--) {
+            if (lists[i].length == 0) {
+                    lists.splice(i, 1);
+            }
+    }
+
+    // Connect lists that are joined by rigid pivot.
+    var restart = false;
+    do {
+            restart = false;
+            for (var i = 0; i < lists.length; i++) {
+                    var a = lists[i];
+                    for (var j = i+1; j < lists.length; j++) {
+                            var b = lists[j];
+                            var c = indexingAnd(a, b);
+                            if (c.length == 0) continue;
+
+                            var foundRigid = false;
+                            for (var k = 0; k < c.length; k++) {
+                                    if (rigids[c[k]]) {
+                                            foundRigid = true;
+                                            break;
+                                    }
+                            }
+
+                            if (!foundRigid) continue;
+
+                            restart = true;
+                            lists[i] = indexingOr(a, b);
+                            lists.splice(j, 1);
+                            break;
+                    }
+
+                    if (restart) break;
+            }
+    } while (restart);
+
+    // Push the start positions to update the rigids.
+    var rigid_lists = lists;
+    var rigid_positions = [];
+    for (var i = 0; i < rigid_lists.length; i++) {
+            var list = rigid_lists[i];
+            var poslist = [];
+            for (var j = 0; j < list.length; j++) {
+                    var p = pivots[list[j]];
+                    poslist.push([p[0], p[1]]);
+            }
+
+            rigid_positions.push(poslist);
+    }
+    
+    return [rigid_positions, rigid_lists]
+}
+
 function newFrame() {
 	var pivots = [];
 	var locks = [];
@@ -174,90 +260,6 @@ function newFrame() {
 	var rigid_lists = [];
 	var rigid_positions = [];
 	var frame = {};
-	
-	var updateRigids = function() {
-		var lists = [];
-		// Create empty lists.
-		for (var i = 0; i < pivots.length; i++) {
-			lists.push([]);
-		}
-		// Create a list of all rigid pivots and their connected pivots.
-		for (var i = 0; i < shapes.length; i++) {
-			var shape = shapes[i];
-			var p1 = shape.p1;
-			var p2 = shape.p2;
-			var p1rigid = rigids[p1];
-			var p2rigid = rigids[p2];
-			if (p1rigid) {
-				var list = lists[p1];
-				if (list.length == 0) {
-					list.push(p1);
-				}
-				
-				indexingInsertSorted(list, p2);
-			}
-			if (p2rigid) {
-				var list = lists[p2];
-				if (list.length == 0) {
-					list.push(p2);
-				}
-				
-				indexingInsertSorted(list, p1);
-			}
-		}
-		
-		// Remove empty lists.
-		for (var i = lists.length - 1; i >= 0; i--) {
-			if (lists[i].length == 0) {
-				lists.splice(i, 1);
-			}
-		}
-		
-		// Connect lists that are joined by rigid pivot.
-		var restart = false;
-		do {
-			restart = false;
-			for (var i = 0; i < lists.length; i++) {
-				var a = lists[i];
-				for (var j = i+1; j < lists.length; j++) {
-					var b = lists[j];
-					var c = indexingAnd(a, b);
-					if (c.length == 0) continue;
-					
-					var foundRigid = false;
-					for (var k = 0; k < c.length; k++) {
-						if (rigids[c[k]]) {
-							foundRigid = true;
-							break;
-						}
-					}
-					
-					if (!foundRigid) continue;
-					
-					restart = true;
-					lists[i] = indexingOr(a, b);
-					lists.splice(j, 1);
-					break;
-				}
-				
-				if (restart) break;
-			}
-		} while (restart);
-		
-		// Push the start positions to update the rigids.
-		rigid_lists = lists;
-		rigid_positions = [];
-		for (var i = 0; i < rigid_lists.length; i++) {
-			var list = rigid_lists[i];
-			var poslist = [];
-			for (var j = 0; j < list.length; j++) {
-				var p = pivots[list[j]];
-				poslist.push([p[0], p[1]]);
-			}
-			
-			rigid_positions.push(poslist);
-		}
-	}
 	
 	frame.addPivot = function(x, y) {
 		pivots.push([x, y]);
@@ -276,7 +278,9 @@ function newFrame() {
 	}
 	frame.setPivotRigid = function(p, val) {
 		rigids[p] = val;
-		updateRigids();
+		var res = updateRigids(pivots, shapes, rigids);
+                rigid_positions = res[0];
+                rigid_lists = res[1];
 	}
 	frame.getPivotLocked = function(p) {
 		return locks[p];
@@ -318,7 +322,9 @@ function newFrame() {
 			}
 		}
 		
-		updateRigids();
+		var res = updateRigids(pivots, shapes, rigids);
+                rigid_positions = res[0];
+                rigid_lists = res[1];
 	}
 	
 	frame.deletePivot = function(p) {
